@@ -278,10 +278,10 @@ model_key = MODEL_OPTIONS[model_display]
 
 if uploaded:
     pil_img = Image.open(uploaded)
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
+    c1, c2 = st.columns([2, 1])
+    with c1:
         st.image(pil_img, use_container_width=True)
-    with c3:
+    with c2:
         identificar = st.button("✦  Identificar escritor")
 
     if identificar:
