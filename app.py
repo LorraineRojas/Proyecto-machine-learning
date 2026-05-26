@@ -152,11 +152,6 @@ IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 IMG_SIZE      = 224
 NUM_CLASSES   = 44
 
-# LabelEncoder sobre sorted(writers) produce este orden exacto
-# (W02 no existe en el dataset ICDAR CircleID)
-LABEL_MAP = {i: f"W{str(i+1).zfill(2)}" if i < 1 else f"W{str(i+2).zfill(2)}"
-             for i in range(NUM_CLASSES)}
-# Reconstrucción explícita para evitar cualquier ambigüedad:
 LABEL_MAP = {
      0: "W01",  1: "W03",  2: "W04",  3: "W05",  4: "W06",
      5: "W07",  6: "W08",  7: "W09",  8: "W10",  9: "W11",
@@ -170,9 +165,14 @@ LABEL_MAP = {
 }
 
 MODEL_OPTIONS = {
-    "EfficientNet-B0":              "effnet",
-    "CNN + LSTM":                   "lstm",
-    "Ensemble (todos)":             "ensemble",
+    "EfficientNet-B0":     "effnet",
+    "CNN + LSTM":          "lstm",
+    "Ensemble (ambos)":    "ensemble",
+}
+
+REQUIRED_FILES = {
+    "effnet": "effnet_b0_fold0.pth",
+    "lstm":   "cnn_lstm_fold0.pth",
 }
 
 
@@ -195,26 +195,31 @@ class ConvNextLSTM(nn.Module):
 
 
 @st.cache_resource(show_spinner=False)
-def load_model(key: str):
-    device = torch.device("cpu")
-    p = lambda name: os.path.join(MODELS_DIR, name)
+def load_effnet():
+    m = timm.create_model("efficientnet_b0", pretrained=False, num_classes=NUM_CLASSES)
+    m.load_state_dict(torch.load(
+        os.path.join(MODELS_DIR, "effnet_b0_fold0.pth"),
+        map_location="cpu", weights_only=True
+    ))
+    return m.eval()
 
-    if key == "effnet":
-        m = timm.create_model("efficientnet_b0", pretrained=False, num_classes=NUM_CLASSES)
-        m.load_state_dict(torch.load(p("effnet_b0_fold0.pth"), map_location=device, weights_only=True))
-        return m.eval()
 
-    if key == "lstm":
-        backbone = timm.create_model("convnext_tiny", pretrained=False, num_classes=0)
-        ckpt = torch.load(p("convnext_tiny_fold0.pth"), map_location=device, weights_only=True)
-        backbone.load_state_dict(
-            {k: v for k, v in ckpt.items() if not k.startswith("head")}, strict=False
-        )
-        backbone.eval()
-        lstm = ConvNextLSTM(768, 256, NUM_CLASSES)
-        lstm.load_state_dict(torch.load(p("cnn_lstm_fold0.pth"), map_location=device, weights_only=True))
-        lstm.eval()
-        return (backbone, lstm)
+@st.cache_resource(show_spinner=False)
+def load_lstm():
+    # backbone: convnext_tiny weights vienen del effnet checkpoint NO —
+    # el backbone del LSTM se carga desde effnet_b0? No: según el notebook
+    # el backbone del LSTM es convnext_tiny pero solo tenemos cnn_lstm_fold0.pth.
+    # El backbone se inicializa sin pesos preentrenados y el LSTM carga sus propios pesos.
+    backbone = timm.create_model("convnext_tiny", pretrained=False, num_classes=0)
+    backbone.eval()
+
+    lstm = ConvNextLSTM(768, 256, NUM_CLASSES)
+    lstm.load_state_dict(torch.load(
+        os.path.join(MODELS_DIR, "cnn_lstm_fold0.pth"),
+        map_location="cpu", weights_only=True
+    ))
+    lstm.eval()
+    return backbone, lstm
 
 
 def preprocess(pil_image: Image.Image) -> torch.Tensor:
@@ -232,17 +237,16 @@ def preprocess(pil_image: Image.Image) -> torch.Tensor:
 
 def run_inference(pil_image: Image.Image, model_key: str, threshold: float):
     tensor = preprocess(pil_image)
-    keys   = ["effnet", "resnet", "convnext", "lstm"] if model_key == "ensemble" else [model_key]
     probs  = []
 
     with torch.no_grad():
-        for k in keys:
-            m = load_model(k)
-            if k == "lstm":
-                backbone, lstm = m
-                out = lstm(backbone.forward_features(tensor))
-            else:
-                out = m(tensor)
+        if model_key in ("effnet", "ensemble"):
+            out = load_effnet()(tensor)
+            probs.append(torch.softmax(out, dim=1).numpy())
+
+        if model_key in ("lstm", "ensemble"):
+            backbone, lstm = load_lstm()
+            out = lstm(backbone.forward_features(tensor))
             probs.append(torch.softmax(out, dim=1).numpy())
 
     avg    = np.mean(probs, axis=0)[0]
@@ -268,12 +272,12 @@ st.markdown("""
 
 st.markdown("""
 <div class="info-box">
-    ℹ️ El <b>umbral de confianza</b> controla cuándo el modelo dice "no sé" en vez de forzar una predicción.
-    Un valor más alto es más estricto. Si ves muchos "Desconocido", bájalo; si ves predicciones erradas, súbelo.
+    ℹ️ El <b>umbral de confianza</b> controla cuándo el modelo dice "desconocido"
+    en vez de forzar una predicción. Si ves muchos resultados desconocidos, bájalo;
+    si ves predicciones erradas, súbelo.
 </div>
 """, unsafe_allow_html=True)
 
-# Controls
 st.markdown('<div class="upload-card">', unsafe_allow_html=True)
 
 st.markdown('<div class="section-label">Imagen de escritura</div>', unsafe_allow_html=True)
@@ -293,7 +297,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 model_key = MODEL_OPTIONS[model_display]
 
-# Preview + predict
 if uploaded:
     pil_img = Image.open(uploaded)
     c1, c2, c3 = st.columns([1, 2, 1])
@@ -301,14 +304,16 @@ if uploaded:
         st.image(pil_img, use_container_width=True)
 
     if st.button("✦  Identificar escritor"):
-        # Check models exist
-        missing = [f for f in ["effnet_b0_fold0.pth", "resnet50_fold0.pth",
-                                "convnext_tiny_fold0.pth", "cnn_lstm_fold0.pth"]
-                   if not os.path.exists(os.path.join(MODELS_DIR, f))]
+        # Verify required .pth files exist
+        needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
+        missing = [REQUIRED_FILES[k] for k in needed
+                   if not os.path.exists(os.path.join(MODELS_DIR, REQUIRED_FILES[k]))]
         if missing:
-            st.markdown(f'<div class="err-box">⚠️ Faltan modelos en <code>models/</code>:<br>'
-                        + "<br>".join(f"• {m}" for m in missing) + "</div>",
-                        unsafe_allow_html=True)
+            st.markdown(
+                '<div class="err-box">⚠️ Faltan modelos en <code>models/</code>:<br>'
+                + "<br>".join(f"• <code>{m}</code>" for m in missing) + "</div>",
+                unsafe_allow_html=True
+            )
         else:
             with st.spinner("Analizando trazos..."):
                 try:
@@ -317,10 +322,11 @@ if uploaded:
 
                     if writer == "-1":
                         writer_html = '<div class="result-writer unknown">Desconocido</div>'
-                        note_html   = (f'<div class="unknown-note">Confianza ({pct}%) por debajo '
-                                       f'del umbral ({int(threshold*100)}%). '
-                                       f'El escritor puede no estar en el conjunto de entrenamiento, '
-                                       f'o intenta bajar el umbral.</div>')
+                        note_html   = (
+                            f'<div class="unknown-note">Confianza ({pct}%) por debajo del '
+                            f'umbral ({int(threshold*100)}%). El escritor puede no estar en '
+                            f'el conjunto de entrenamiento, o intenta bajar el umbral.</div>'
+                        )
                     else:
                         writer_html = f'<div class="result-writer">{writer}</div>'
                         note_html   = ""
@@ -336,7 +342,7 @@ if uploaded:
                             </div>
                             <div class="conf-pct">{pct}%</div>
                         </div>
-                        <div class="result-model-tag">Modelo · {model_display.split("(")[0].strip()}</div>
+                        <div class="result-model-tag">Modelo · {model_display}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
