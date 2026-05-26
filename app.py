@@ -318,30 +318,32 @@ if uploaded:
                     pct = int(conf * 100)
 
                     if writer == "-1":
-                        writer_html = '<div class="result-writer unknown">Desconocido</div>'
-                        note_html   = (
-                            f'<div class="unknown-note">Confianza ({pct}%) por debajo del '
-                            f'umbral ({int(threshold*100)}%). El escritor puede no estar en '
-                            f'el conjunto de entrenamiento, o intenta bajar el umbral.</div>'
+                        name_block = '<div class="result-writer unknown">Desconocido</div>'
+                        note_block = (
+                            '<div class="unknown-note">'
+                            f'Confianza ({pct}%) por debajo del umbral ({int(threshold*100)}%). '
+                            'El escritor puede no estar en el conjunto de entrenamiento, '
+                            'o intenta bajar el umbral.'
+                            '</div>'
                         )
                     else:
-                        writer_html = f'<div class="result-writer">{writer}</div>'
-                        note_html   = ""
+                        name_block = f'<div class="result-writer">{writer}</div>'
+                        note_block = ""
 
-                    st.markdown(f"""
-                    <div class="result-card">
-                        <div class="result-label">Escritor identificado</div>
-                        {writer_html}
-                        {note_html}
-                        <div class="result-conf-row">
-                            <div class="conf-bar-bg">
-                                <div class="conf-bar-fill" style="width:{pct}%"></div>
-                            </div>
-                            <div class="conf-pct">{pct}%</div>
-                        </div>
-                        <div class="result-model-tag">Modelo · {model_display}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    html = (
+                        '<div class="result-card">'
+                        '<div class="result-label">Escritor identificado</div>'
+                        + name_block + note_block
+                        + '<div class="result-conf-row">'
+                        '<div class="conf-bar-bg">'
+                        f'<div class="conf-bar-fill" style="width:{pct}%"></div>'
+                        '</div>'
+                        f'<div class="conf-pct">{pct}%</div>'
+                        '</div>'
+                        f'<div class="result-model-tag">Modelo · {model_display}</div>'
+                        '</div>'
+                    )
+                    st.markdown(html, unsafe_allow_html=True)
 
                 except Exception as e:
                     st.markdown(f'<div class="err-box">❌ Error: <code>{e}</code></div>',
