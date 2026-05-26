@@ -286,14 +286,6 @@ if uploaded:
 
     if identificar:
 
-        st.markdown("""
-            <script>
-                const element = window.parent.document.getElementById('resultado');
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                }
-            </script>
-        """, unsafe_allow_html=True)
         # Verify required .pth files exist
         needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
         missing = [REQUIRED_FILES[k] for k in needed
@@ -342,6 +334,19 @@ if uploaded:
                         '</div>'
                     )
                     st.markdown(html, unsafe_allow_html=True)
+                    st.markdown("""
+                    <script>
+                        setTimeout(() => {
+                            const element = window.parent.document.getElementById("resultado");
+                            if (element) {
+                                element.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "start"
+                                });
+                            }
+                        }, 300);
+                    </script>
+                    """, unsafe_allow_html=True)
 
                 except Exception as e:
                     st.markdown(f'<div class="err-box">❌ Error: <code>{e}</code></div>',
