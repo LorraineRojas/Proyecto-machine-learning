@@ -181,10 +181,10 @@ def run_inference(pil_image: Image.Image, threshold: float):
 # ──────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-    <div class="hero-eyebrow">ICDAR 2026 · CircleID</div>
+    <div class="hero-eyebrow">ISIS4219 2026-1</div>
     <div class="hero-title">Writer<br><em>Identification</em></div>
     <div class="hero-subtitle">
-        Sube una imagen de escritura circular y el modelo identificará al escritor.
+        Sube una imagen de escritura y el modelo identificará al escritor.
     </div>
 </div>
 <div class="ink-divider">· · ·</div>
