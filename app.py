@@ -1,12 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import numpy as np
 import cv2
 import torch
-import torch.nn as nn
 import timm
 import os
 from PIL import Image
-import streamlit.components.v1 as components
 
 # ──────────────────────────────────────────────
 # PAGE CONFIG
@@ -55,25 +54,11 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     text-align: center; color: #C4A882; font-size: 1.4rem;
     letter-spacing: 0.5rem; margin: 1.2rem 0;
 }
-.upload-card {
-    background: rgba(255,252,245,0.85); border: 1.5px solid #D4C4A8;
-    border-radius: 16px; padding: 1.6rem 1.8rem 1rem;
-    box-shadow: 0 4px 24px rgba(100,80,50,0.08); margin-bottom: 1.2rem;
-}
-.section-label {
-    font-family: 'DM Mono', monospace; font-size: 0.68rem;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: #9C8060; margin-bottom: 0.5rem;
-}
 [data-testid="stFileUploader"] > div {
     background: #FBF7EF !important; border: 2px dashed #C4A882 !important;
     border-radius: 10px !important;
 }
 [data-testid="stFileUploader"] > div:hover { border-color: #6B4F2A !important; }
-.stSelectbox > div > div {
-    background: #FBF7EF; border: 1.5px solid #C4A882; border-radius: 8px;
-    font-family: 'DM Mono', monospace; font-size: 0.85rem; color: #3D2B1A;
-}
 .stButton > button {
     width: 100%; background: #3D2B1A !important; color: #F5F0E8 !important;
     border: none !important; border-radius: 10px !important;
@@ -147,68 +132,24 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 # ──────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
+MODEL_PATH = os.path.join(MODELS_DIR, "effnet_b0_fold0.pth")
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 IMG_SIZE      = 224
 NUM_CLASSES   = 36
 
-
 LABEL_MAP = {i: f"Writer #{i}" for i in range(NUM_CLASSES)}
 
-MODEL_OPTIONS = {
-    "EfficientNet-B0":     "effnet",
-    "CNN + LSTM":          "lstm",
-    "Ensemble (ambos)":    "ensemble",
-}
-
-REQUIRED_FILES = {
-    "effnet": "effnet_b0_fold0.pth",
-    "lstm":   "cnn_lstm_fold0.pth",
-}
-
 
 # ──────────────────────────────────────────────
-# MODEL DEFINITIONS & LOADING
+# MODEL
 # ──────────────────────────────────────────────
-class ConvNextLSTM(nn.Module):
-    def __init__(self, feat_dim=768, hidden_dim=256, num_classes=36, num_layers=2):
-        super().__init__()
-        self.lstm = nn.LSTM(feat_dim, hidden_dim, num_layers=num_layers,
-                            batch_first=True, dropout=0.3, bidirectional=True)
-        self.dropout = nn.Dropout(0.3)
-        self.fc = nn.Linear(hidden_dim * 2, num_classes)
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-        x = x.view(b, c, h * w).permute(0, 2, 1)
-        lstm_out, _ = self.lstm(x)
-        return self.fc(self.dropout(lstm_out[:, -1, :]))
-
-
 @st.cache_resource(show_spinner=False)
-def load_effnet():
+def load_model():
     m = timm.create_model("efficientnet_b0", pretrained=False, num_classes=NUM_CLASSES)
-    m.load_state_dict(torch.load(
-        os.path.join(MODELS_DIR, "effnet_b0_fold0.pth"),
-        map_location="cpu", weights_only=True
-    ))
+    m.load_state_dict(torch.load(MODEL_PATH, map_location="cpu", weights_only=True))
     return m.eval()
-
-
-@st.cache_resource(show_spinner=False)
-def load_lstm():
-
-    backbone = timm.create_model("convnext_tiny", pretrained=False, num_classes=0)
-    backbone.eval()
-
-    lstm = ConvNextLSTM(768, 256, NUM_CLASSES)
-    lstm.load_state_dict(torch.load(
-        os.path.join(MODELS_DIR, "cnn_lstm_fold0.pth"),
-        map_location="cpu", weights_only=True
-    ))
-    lstm.eval()
-    return backbone, lstm
 
 
 def preprocess(pil_image: Image.Image) -> torch.Tensor:
@@ -224,23 +165,13 @@ def preprocess(pil_image: Image.Image) -> torch.Tensor:
     return torch.from_numpy(img3.transpose(2, 0, 1)).unsqueeze(0).float()
 
 
-def run_inference(pil_image: Image.Image, model_key: str, threshold: float):
+def run_inference(pil_image: Image.Image, threshold: float):
     tensor = preprocess(pil_image)
-    probs  = []
-
     with torch.no_grad():
-        if model_key in ("effnet", "ensemble"):
-            out = load_effnet()(tensor)
-            probs.append(torch.softmax(out, dim=1).numpy())
-
-        if model_key in ("lstm", "ensemble"):
-            backbone, lstm = load_lstm()
-            out = lstm(backbone.forward_features(tensor))
-            probs.append(torch.softmax(out, dim=1).numpy())
-
-    avg    = np.mean(probs, axis=0)[0]
-    conf   = float(avg.max())
-    idx    = int(avg.argmax())
+        out  = load_model()(tensor)
+        prob = torch.softmax(out, dim=1).numpy()[0]
+    conf   = float(prob.max())
+    idx    = int(prob.argmax())
     writer = LABEL_MAP[idx] if conf >= threshold else "-1"
     return writer, conf
 
@@ -267,38 +198,30 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col_m, col_t = st.columns([3, 2])
-with col_m:
-    model_display = st.selectbox("Modelo", list(MODEL_OPTIONS.keys()))
-with col_t:
-    threshold = st.slider("Umbral de confianza", min_value=0.10, max_value=0.95,
-                          value=0.50, step=0.05)
+threshold = st.slider("Umbral de confianza", min_value=0.10, max_value=0.95,
+                      value=0.50, step=0.05)
 
 uploaded = st.file_uploader("Imagen de escritura", type=["png", "jpg", "jpeg", "bmp", "tiff"])
 
-model_key = MODEL_OPTIONS[model_display]
-
 if uploaded:
     pil_img = Image.open(uploaded)
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
+    c1, c2 = st.columns([2, 1])
+    with c1:
         st.image(pil_img, use_container_width=True)
+    with c2:
+        identificar = st.button("✦  Identificar\nescritor")
 
-    if st.button("✦  Identificar escritor"):
-        # Verify required .pth files exist
-        needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
-        missing = [REQUIRED_FILES[k] for k in needed
-                   if not os.path.exists(os.path.join(MODELS_DIR, REQUIRED_FILES[k]))]
-        if missing:
+    if identificar:
+        if not os.path.exists(MODEL_PATH):
             st.markdown(
-                '<div class="err-box">⚠️ Faltan modelos en <code>models/</code>:<br>'
-                + "<br>".join(f"• <code>{m}</code>" for m in missing) + "</div>",
+                '<div class="err-box">⚠️ Modelo no encontrado: '
+                '<code>models/effnet_b0_fold0.pth</code></div>',
                 unsafe_allow_html=True
             )
         else:
             with st.spinner("Analizando trazos..."):
                 try:
-                    writer, conf = run_inference(pil_img, model_key, threshold)
+                    writer, conf = run_inference(pil_img, threshold)
                     pct = int(conf * 100)
 
                     if writer == "-1":
@@ -312,7 +235,7 @@ if uploaded:
                         )
                     else:
                         name_block = f'<div class="result-writer">{writer}</div>'
-                        note_block = ""
+                        note_block = ''
 
                     html = (
                         '<div class="result-card">'
@@ -324,11 +247,20 @@ if uploaded:
                         '</div>'
                         f'<div class="conf-pct">{pct}%</div>'
                         '</div>'
-                        f'<div class="result-model-tag">Modelo · {model_display}</div>'
+                        '<div class="result-model-tag">Modelo · EfficientNet-B0</div>'
                         '</div>'
                     )
                     st.markdown(html, unsafe_allow_html=True)
+                    components.html("""
+                    <script>
+                        window.parent.document.querySelector(
+                            '[data-testid="stVerticalBlock"]'
+                        ).lastElementChild.scrollIntoView({behavior: "smooth", block: "start"});
+                    </script>
+                    """, height=0)
 
                 except Exception as e:
-                    st.markdown(f'<div class="err-box">❌ Error: <code>{e}</code></div>',
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="err-box">❌ Error: <code>{e}</code></div>',
+                        unsafe_allow_html=True
+                    )
