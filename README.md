@@ -1,6 +1,6 @@
-# CircleID · Writer Identification App
+# Writer Identification App
 
-Aplicación Streamlit para identificar escritores a partir de imágenes de escritura circular (ICDAR 2026).
+Aplicación Streamlit para identificar escritores a partir de imágenes de escritura
 
 ## Estructura del repositorio
 
