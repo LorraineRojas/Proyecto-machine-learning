@@ -6,6 +6,7 @@ import torch.nn as nn
 import timm
 import os
 from PIL import Image
+import streamlit.components.v1 as components
 
 # ──────────────────────────────────────────────
 # PAGE CONFIG
@@ -249,12 +250,13 @@ def run_inference(pil_image: Image.Image, model_key: str, threshold: float):
 # ──────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-    <div class="hero-eyebrow">2026</div>
+    <div class="hero-eyebrow">ICDAR 2026 · CircleID</div>
     <div class="hero-title">Writer<br><em>Identification</em></div>
     <div class="hero-subtitle">
-        Sube una imagen de escritura y el modelo identificará al escritor.
+        Sube una imagen de escritura circular y el modelo identificará al escritor.
     </div>
 </div>
+<div class="ink-divider">· · ·</div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
@@ -272,27 +274,24 @@ with col_t:
     threshold = st.slider("Umbral de confianza", min_value=0.10, max_value=0.95,
                           value=0.50, step=0.05)
 
-uploaded = st.file_uploader("Imagen", type=["png", "jpg", "jpeg", "bmp", "tiff"])
+uploaded = st.file_uploader("Imagen de escritura", type=["png", "jpg", "jpeg", "bmp", "tiff"])
 
 model_key = MODEL_OPTIONS[model_display]
 
 if uploaded:
     pil_img = Image.open(uploaded)
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.image(pil_img, use_container_width=True)
+    c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        identificar = st.button("✦  Identificar escritor")
+        st.image(pil_img, use_container_width=True)
 
-    if identificar:
-
+    if st.button("✦  Identificar escritor"):
         # Verify required .pth files exist
         needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
         missing = [REQUIRED_FILES[k] for k in needed
                    if not os.path.exists(os.path.join(MODELS_DIR, REQUIRED_FILES[k]))]
         if missing:
             st.markdown(
-                '<div class="err-box">Faltan modelos en <code>models/</code>:<br>'
+                '<div class="err-box">⚠️ Faltan modelos en <code>models/</code>:<br>'
                 + "<br>".join(f"• <code>{m}</code>" for m in missing) + "</div>",
                 unsafe_allow_html=True
             )
@@ -315,11 +314,6 @@ if uploaded:
                         name_block = f'<div class="result-writer">{writer}</div>'
                         note_block = ""
 
-                    st.markdown(
-                        '<div id="resultado"></div>',
-                        unsafe_allow_html=True
-                    )
-                  
                     html = (
                         '<div class="result-card">'
                         '<div class="result-label">Escritor identificado</div>'
@@ -334,19 +328,6 @@ if uploaded:
                         '</div>'
                     )
                     st.markdown(html, unsafe_allow_html=True)
-                    st.markdown("""
-                    <script>
-                        setTimeout(() => {
-                            const element = window.parent.document.getElementById("resultado");
-                            if (element) {
-                                element.scrollIntoView({
-                                    behavior: "smooth",
-                                    block: "start"
-                                });
-                            }
-                        }, 300);
-                    </script>
-                    """, unsafe_allow_html=True)
 
                 except Exception as e:
                     st.markdown(f'<div class="err-box">❌ Error: <code>{e}</code></div>',
