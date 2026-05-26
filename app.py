@@ -275,22 +275,14 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-
-st.markdown('<div class="section-label">Imagen de escritura</div>', unsafe_allow_html=True)
-uploaded = st.file_uploader("", type=["png", "jpg", "jpeg", "bmp", "tiff"],
-                             label_visibility="collapsed")
-
 col_m, col_t = st.columns([3, 2])
 with col_m:
-    st.markdown('<div class="section-label" style="margin-top:1rem;">Modelo</div>', unsafe_allow_html=True)
-    model_display = st.selectbox("", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
+    model_display = st.selectbox("Modelo", list(MODEL_OPTIONS.keys()))
 with col_t:
-    st.markdown('<div class="section-label" style="margin-top:1rem;">Umbral de confianza</div>', unsafe_allow_html=True)
-    threshold = st.slider("", min_value=0.10, max_value=0.95,
-                          value=0.50, step=0.05, label_visibility="collapsed")
+    threshold = st.slider("Umbral de confianza", min_value=0.10, max_value=0.95,
+                          value=0.50, step=0.05)
 
-st.markdown('</div>', unsafe_allow_html=True)
+uploaded = st.file_uploader("Imagen de escritura", type=["png", "jpg", "jpeg", "bmp", "tiff"])
 
 model_key = MODEL_OPTIONS[model_display]
 
