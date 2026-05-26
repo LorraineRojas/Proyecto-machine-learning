@@ -187,7 +187,6 @@ st.markdown("""
         Sube una imagen de escritura y el modelo identificará al escritor.
     </div>
 </div>
-<div class="ink-divider">· · ·</div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
