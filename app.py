@@ -11,7 +11,7 @@ from PIL import Image
 # PAGE CONFIG
 # ──────────────────────────────────────────────
 st.set_page_config(
-    page_title="CircleID · Writer Identification",
+    page_title="Writer Identification",
     page_icon="✍️",
     layout="centered",
 )
@@ -258,13 +258,12 @@ def run_inference(pil_image: Image.Image, model_key: str, threshold: float):
 # ──────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-    <div class="hero-eyebrow">ICDAR 2026 · CircleID</div>
+    <div class="hero-eyebrow">2026</div>
     <div class="hero-title">Writer<br><em>Identification</em></div>
     <div class="hero-subtitle">
         Sube una imagen de escritura circular y el modelo identificará al escritor.
     </div>
 </div>
-<div class="ink-divider">· · ·</div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
