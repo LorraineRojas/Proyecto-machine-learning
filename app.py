@@ -152,13 +152,7 @@ IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 IMG_SIZE      = 224
 NUM_CLASSES   = 36
 
-# El modelo fue entrenado en fold 0 con 36 writers conocidos
-# (44 totales - 8 fake unknowns retenidos para validación).
-# El mapeo exacto depende del LabelEncoder sobre los writers de fold 0.
-# Sin acceso al label_mapping.json del notebook, mostramos el índice
-# como "Writer #N" — funcionalmente correcto para identificar si dos
-# imágenes son del mismo escritor. Si tienes el label_mapping.json,
-# agrégalo al repo y descomenta el bloque de carga abajo.
+
 LABEL_MAP = {i: f"Writer #{i}" for i in range(NUM_CLASSES)}
 
 MODEL_OPTIONS = {
@@ -203,10 +197,7 @@ def load_effnet():
 
 @st.cache_resource(show_spinner=False)
 def load_lstm():
-    # backbone: convnext_tiny weights vienen del effnet checkpoint NO —
-    # el backbone del LSTM se carga desde effnet_b0? No: según el notebook
-    # el backbone del LSTM es convnext_tiny pero solo tenemos cnn_lstm_fold0.pth.
-    # El backbone se inicializa sin pesos preentrenados y el LSTM carga sus propios pesos.
+
     backbone = timm.create_model("convnext_tiny", pretrained=False, num_classes=0)
     backbone.eval()
 
@@ -261,14 +252,14 @@ st.markdown("""
     <div class="hero-eyebrow">2026</div>
     <div class="hero-title">Writer<br><em>Identification</em></div>
     <div class="hero-subtitle">
-        Sube una imagen de escritura circular y el modelo identificará al escritor.
+        Sube una imagen de escritura y el modelo identificará al escritor.
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="info-box">
-    ℹ️ El <b>umbral de confianza</b> controla cuándo el modelo dice "desconocido"
+    El <b>umbral de confianza</b> controla cuándo el modelo dice "desconocido"
     en vez de forzar una predicción. Si ves muchos resultados desconocidos, bájalo;
     si ves predicciones erradas, súbelo.
 </div>
@@ -281,7 +272,7 @@ with col_t:
     threshold = st.slider("Umbral de confianza", min_value=0.10, max_value=0.95,
                           value=0.50, step=0.05)
 
-uploaded = st.file_uploader("Imagen de escritura", type=["png", "jpg", "jpeg", "bmp", "tiff"])
+uploaded = st.file_uploader("Imagen", type=["png", "jpg", "jpeg", "bmp", "tiff"])
 
 model_key = MODEL_OPTIONS[model_display]
 
@@ -290,15 +281,17 @@ if uploaded:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.image(pil_img, use_container_width=True)
+    with c3:
+        identificar = st.button("✦  Identificar escritor")
 
-    if st.button("✦  Identificar escritor"):
+    if identificar:
         # Verify required .pth files exist
         needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
         missing = [REQUIRED_FILES[k] for k in needed
                    if not os.path.exists(os.path.join(MODELS_DIR, REQUIRED_FILES[k]))]
         if missing:
             st.markdown(
-                '<div class="err-box">⚠️ Faltan modelos en <code>models/</code>:<br>'
+                '<div class="err-box">Faltan modelos en <code>models/</code>:<br>'
                 + "<br>".join(f"• <code>{m}</code>" for m in missing) + "</div>",
                 unsafe_allow_html=True
             )
