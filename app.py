@@ -204,10 +204,17 @@ def load_model(key: str):
         m.load_state_dict(torch.load(p("effnet_b0_fold0.pth"), map_location=device, weights_only=True))
         return m.eval()
 
-    if key == "resnet":
-        m = timm.create_model("resnet50", pretrained=False, num_classes=NUM_CLASSES)
-        m.load_state_dict(torch.load(p("resnet50_fold0.pth"), map_location=device, weights_only=True))
-        return m.eval()
+    if key == "lstm":
+        backbone = timm.create_model("convnext_tiny", pretrained=False, num_classes=0)
+        ckpt = torch.load(p("convnext_tiny_fold0.pth"), map_location=device, weights_only=True)
+        backbone.load_state_dict(
+            {k: v for k, v in ckpt.items() if not k.startswith("head")}, strict=False
+        )
+        backbone.eval()
+        lstm = ConvNextLSTM(768, 256, NUM_CLASSES)
+        lstm.load_state_dict(torch.load(p("cnn_lstm_fold0.pth"), map_location=device, weights_only=True))
+        lstm.eval()
+        return (backbone, lstm)
 
 
 def preprocess(pil_image: Image.Image) -> torch.Tensor:
