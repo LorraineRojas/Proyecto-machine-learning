@@ -150,19 +150,16 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 IMG_SIZE      = 224
-NUM_CLASSES   = 44
+NUM_CLASSES   = 36
 
-LABEL_MAP = {
-     0: "W01",  1: "W03",  2: "W04",  3: "W05",  4: "W06",
-     5: "W07",  6: "W08",  7: "W09",  8: "W10",  9: "W11",
-    10: "W12", 11: "W13", 12: "W14", 13: "W15", 14: "W16",
-    15: "W17", 16: "W18", 17: "W19", 18: "W20", 19: "W21",
-    20: "W22", 21: "W23", 22: "W24", 23: "W25", 24: "W26",
-    25: "W27", 26: "W28", 27: "W29", 28: "W30", 29: "W31",
-    30: "W32", 31: "W33", 32: "W34", 33: "W35", 34: "W36",
-    35: "W37", 36: "W38", 37: "W39", 38: "W40", 39: "W41",
-    40: "W42", 41: "W43", 42: "W50", 43: "W51",
-}
+# El modelo fue entrenado en fold 0 con 36 writers conocidos
+# (44 totales - 8 fake unknowns retenidos para validación).
+# El mapeo exacto depende del LabelEncoder sobre los writers de fold 0.
+# Sin acceso al label_mapping.json del notebook, mostramos el índice
+# como "Writer #N" — funcionalmente correcto para identificar si dos
+# imágenes son del mismo escritor. Si tienes el label_mapping.json,
+# agrégalo al repo y descomenta el bloque de carga abajo.
+LABEL_MAP = {i: f"Writer #{i}" for i in range(NUM_CLASSES)}
 
 MODEL_OPTIONS = {
     "EfficientNet-B0":     "effnet",
@@ -180,7 +177,7 @@ REQUIRED_FILES = {
 # MODEL DEFINITIONS & LOADING
 # ──────────────────────────────────────────────
 class ConvNextLSTM(nn.Module):
-    def __init__(self, feat_dim=768, hidden_dim=256, num_classes=44, num_layers=2):
+    def __init__(self, feat_dim=768, hidden_dim=256, num_classes=36, num_layers=2):
         super().__init__()
         self.lstm = nn.LSTM(feat_dim, hidden_dim, num_layers=num_layers,
                             batch_first=True, dropout=0.3, bidirectional=True)
