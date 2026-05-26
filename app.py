@@ -285,6 +285,15 @@ if uploaded:
         identificar = st.button("✦  Identificar escritor")
 
     if identificar:
+
+        st.markdown("""
+            <script>
+                const element = window.parent.document.getElementById('resultado');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                }
+            </script>
+        """, unsafe_allow_html=True)
         # Verify required .pth files exist
         needed = ["effnet", "lstm"] if model_key == "ensemble" else [model_key]
         missing = [REQUIRED_FILES[k] for k in needed
@@ -313,7 +322,10 @@ if uploaded:
                     else:
                         name_block = f'<div class="result-writer">{writer}</div>'
                         note_block = ""
-
+                     st.markdown(
+                        '<div id="resultado"></div>',
+                        unsafe_allow_html=True
+                    )
                     html = (
                         '<div class="result-card">'
                         '<div class="result-label">Escritor identificado</div>'
