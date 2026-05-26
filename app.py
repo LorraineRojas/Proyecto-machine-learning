@@ -288,7 +288,7 @@ if uploaded:
 
         st.markdown("""
             <script>
-                const element = window.parent.document.getElementById('result-card');
+                const element = window.parent.document.getElementById('resultado');
                 if (element) {
                     element.scrollIntoView({ behavior: 'smooth' });
                 }
@@ -322,6 +322,11 @@ if uploaded:
                     else:
                         name_block = f'<div class="result-writer">{writer}</div>'
                         note_block = ""
+
+                    st.markdown(
+                        '<div id="resultado"></div>',
+                        unsafe_allow_html=True
+                    )
                   
                     html = (
                         '<div class="result-card">'
